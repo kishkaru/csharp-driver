@@ -178,5 +178,33 @@ namespace Cassandra.IntegrationTests.Core
                 testCluster.ResumeNode(2);
             }
         }
+
+        /// Tests a TimeoutException is raised when all hosts down with default read timeout
+        ///
+        /// Should_Abort_After_Default_ReadTimeoutMillis tests that the driver throws a TimeoutException and aborts the 
+        /// query execution when all nodes in the cluster is down, given a the default ReadTimeoutMillis of 12 seconds.
+        ///
+        /// @since 3.0.0
+        /// @jira_ticket CSHARP-362
+        /// @expected_result A TimeoutException should be raised after 12 seconds.
+        ///
+        /// @test_category connection:timeout
+        [Test]
+        public void Should_Abort_After_Default_ReadTimeoutMillis()
+        {
+            var testCluster = TestClusterManager.GetNonShareableTestCluster(2, 1, true, false);
+            var builder = Cluster.Builder().AddContactPoint(testCluster.InitialContactPoint);
+            using (var cluster = builder.Build())
+            {
+                var session = cluster.Connect();
+                //warmup
+                TestHelper.Invoke(() => session.Execute("SELECT key FROM system.local"), 10);
+                testCluster.PauseNode(1);
+                testCluster.PauseNode(2);
+                Assert.Throws<TimeoutException>(() => session.Execute("SELECT key FROM system.local"));
+                testCluster.ResumeNode(1);
+                testCluster.ResumeNode(2);
+            }
+        }
     }
 }
